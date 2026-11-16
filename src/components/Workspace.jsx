@@ -30,6 +30,8 @@ import {
   useNavigateWithParams,
 } from "../hooks";
 import FloatingControls from "./FloatingControls";
+import AiChatPanel from "./AiChatPanel";
+import AiSettingsModal from "./AiSettingsModal";
 import StartModal from "./StartModal";
 import { Button, Modal } from "@douyinfe/semi-ui";
 import { IconAlertTriangle } from "@douyinfe/semi-icons";
@@ -575,6 +577,7 @@ export default function WorkSpace({ forcedDiagramId } = {}) {
           <CanvasContextProvider className="h-full w-full">
             <Canvas saveState={saveState} setSaveState={setSaveState} />
           </CanvasContextProvider>
+          <AiChatPanel />
           <Slot name="canvas-overlay" />
           {layout.toolbar && (
             <div
@@ -648,6 +651,7 @@ export default function WorkSpace({ forcedDiagramId } = {}) {
           navigate(`/editor/templates/${templateId}`, { replace: true });
         }}
       />
+      <AiSettingsModal />
       <Modal
         visible={showRestoreModal}
         centered

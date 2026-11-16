@@ -16,3 +16,4 @@ export { default as useThemedPage } from "./useThemedPage";
 export { default as useNavigateWithParams } from "./useNavigateWithParams";
 export { default as useCollab } from "./useCollab";
 export { default as useAreaMembership } from "./useAreaMembership";
+export { default as useAi } from "./useAi";

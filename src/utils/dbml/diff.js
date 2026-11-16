@@ -81,7 +81,7 @@ function diffFields(before, after) {
   return { replaceFields: false, updates };
 }
 
-function diffTables(before, after) {
+function diffTables(before, after, { includePositions = false } = {}) {
   const beforeById = byId(before);
   const afterById = byId(after);
 
@@ -100,7 +100,8 @@ function diffTables(before, after) {
     const previous = beforeById.get(table.id);
     if (!previous) continue;
 
-    const values = changedValues(previous, table, TABLE_KEYS);
+    const tableKeys = includePositions ? [...TABLE_KEYS, "x", "y"] : TABLE_KEYS;
+    const values = changedValues(previous, table, tableKeys);
     const fields = diffFields(previous, table);
     if (fields.replaceFields) values.fields = table.fields;
     else fieldUpdates.push(...fields.updates);
@@ -148,12 +149,14 @@ function diffRelationships(before, after) {
   return { deletes, creates, updates };
 }
 
-export function diffDiagram(from, to) {
+export function diffDiagram(from, to, { includePositions = false } = {}) {
   const enums = isEqual(from.enums ?? [], to.enums ?? [])
     ? []
     : [{ target: "enums", action: "update", enums: to.enums ?? [] }];
 
-  const tables = diffTables(from.tables ?? [], to.tables ?? []);
+  const tables = diffTables(from.tables ?? [], to.tables ?? [], {
+    includePositions,
+  });
   const relationships = diffRelationships(
     from.relationships ?? [],
     to.relationships ?? [],

@@ -75,6 +75,7 @@ import {
   useViews,
   useFullscreen,
   useNavigateWithParams,
+  useAi,
 } from "../../hooks";
 import { enterFullscreen, exitFullscreen } from "../../utils/fullscreen";
 import { dataURItoBlob } from "../../utils/utils";
@@ -83,6 +84,7 @@ import {
   IconAddNote,
   IconAddTable,
   IconAddView,
+  IconSparkles,
 } from "../../icons";
 import LayoutDropdown from "./LayoutDropdown";
 import Sidesheet from "./SideSheet/Sidesheet";
@@ -220,6 +222,7 @@ export default function ControlPanel({
   const { undoStack, redoStack, setUndoStack, setRedoStack } = useUndoRedo();
   const { selectedElement, setSelectedElement } = useSelect();
   const { transform, setTransform } = useTransform();
+  const { open: openAi, openSettings: openAiSettings } = useAi();
   const { t, i18n } = useTranslation();
   const { version, gistId, setGistId } = useContext(IdContext);
   const isTemplate = useMatch("/editor/templates/:id");
@@ -228,17 +231,28 @@ export default function ControlPanel({
 
   const swapDbmlSnapshot = (entry) => {
     const current = { tables, relationships, enums };
-    applyDiagramPlan(diffDiagram(current, entry.data.snapshot), {
-      addTable,
-      updateTable,
-      updateField,
-      deleteTable,
-      addRelationship,
-      updateRelationship,
-      deleteRelationship,
-      setEnums,
-    });
-    return { ...entry, data: { snapshot: current } };
+    applyDiagramPlan(
+      diffDiagram(current, entry.data.snapshot, {
+        includePositions: Boolean(entry.data.includePositions),
+      }),
+      {
+        addTable,
+        updateTable,
+        updateField,
+        deleteTable,
+        addRelationship,
+        updateRelationship,
+        deleteRelationship,
+        setEnums,
+      },
+    );
+    return {
+      ...entry,
+      data: {
+        snapshot: current,
+        ...(entry.data.includePositions && { includePositions: true }),
+      },
+    };
   };
 
   const undo = () => {
@@ -2050,6 +2064,9 @@ export default function ControlPanel({
         function: () => setModal(MODAL.CONFIG_CUSTOM_TYPES),
         disabled: layout.readOnly,
       },
+      ai_model_settings: {
+        function: openAiSettings,
+      },
       language: {
         function: () => setModal(MODAL.LANGUAGE),
       },
@@ -2381,6 +2398,16 @@ export default function ControlPanel({
               <i className="fa-solid fa-wand-magic-sparkles" />
             </button>
           </Dropdown>
+          <Divider layout="vertical" margin="8px" />
+          <Tooltip content={t("ai_open")} position="bottom">
+            <button
+              className="py-1 px-2 hover-2 rounded-sm text-xl -mt-0.5"
+              onClick={openAi}
+              aria-label={t("ai_open")}
+            >
+              <IconSparkles size={16} />
+            </button>
+          </Tooltip>
           <Divider layout="vertical" margin="8px" />
           <Tooltip content={t("save")} position="bottom">
             <button

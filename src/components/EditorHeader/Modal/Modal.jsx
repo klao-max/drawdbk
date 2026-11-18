@@ -28,6 +28,7 @@ import {
 import { isRtl } from "../../../i18n/utils/rtl";
 import { useExtensions } from "../../../context/ExtensionsContext";
 import { importSQL } from "../../../utils/importSQL";
+import { preparePostgresImportSource } from "../../../utils/importSQL/postgresSource";
 import { fromSchemaQuery } from "../../../utils/importFrom/schemaQuery";
 import { autoArrange } from "../../../utils/autoArrange";
 import { getTableHeight } from "../../../utils/utils";
@@ -139,7 +140,11 @@ export default function Modal({
       } else {
         const parser = new Parser();
 
-        ast = parser.astify(importSource.src, {
+        const source =
+          targetDatabase === DB.POSTGRES
+            ? preparePostgresImportSource(importSource.src)
+            : importSource.src;
+        ast = parser.astify(source, {
           database: targetDatabase,
         });
       }

@@ -112,6 +112,7 @@ import {
   getViewWidth,
   resolveViewColumns,
 } from "../../utils/views";
+import { calculateFitTransform } from "../../utils/fitTransform";
 import { layoutEngines, runLayout } from "../../utils/layout";
 import { schemaQueries } from "../../utils/importFrom/schemaQuery";
 import { findAutoFKRelationships } from "../../utils/autoRelationships";
@@ -738,7 +739,9 @@ export default function ControlPanel({
     setTransform((prev) => ({ ...prev, zoom: 1, pan: { x: 0, y: 0 } }));
   const fitWindow = () => fitToView(tables);
   const fitToView = (tablesToFit) => {
-    const canvas = document.getElementById("canvas").getBoundingClientRect();
+    const canvasElement = document.getElementById("canvas");
+    if (!canvasElement) return;
+    const canvas = canvasElement.getBoundingClientRect();
 
     const minMaxXY = {
       minX: Infinity,
@@ -746,71 +749,64 @@ export default function ControlPanel({
       maxX: -Infinity,
       maxY: -Infinity,
     };
+    const addBounds = (x, y, width, height) => {
+      if (
+        ![x, y, width, height].every((value) => Number.isFinite(value)) ||
+        width < 0 ||
+        height < 0
+      )
+        return;
+      minMaxXY.minX = Math.min(minMaxXY.minX, x);
+      minMaxXY.minY = Math.min(minMaxXY.minY, y);
+      minMaxXY.maxX = Math.max(minMaxXY.maxX, x + width);
+      minMaxXY.maxY = Math.max(minMaxXY.maxY, y + height);
+    };
 
     const relatedFieldKeysByTable = getRelatedFieldKeysByTable(relationships);
-    tablesToFit.forEach((table) => {
-      minMaxXY.minX = Math.min(minMaxXY.minX, table.x);
-      minMaxXY.minY = Math.min(minMaxXY.minY, table.y);
-      minMaxXY.maxX = Math.max(minMaxXY.maxX, table.x + getTableWidth(table));
-      minMaxXY.maxY = Math.max(
-        minMaxXY.maxY,
-        table.y +
-          getTableHeight(
-            table,
-            settings.showComments,
-            relatedFieldKeysByTable.get(table.id),
-          ),
+    (tablesToFit ?? []).forEach((table) => {
+      addBounds(
+        table.x,
+        table.y,
+        getTableWidth(table),
+        getTableHeight(
+          table,
+          settings.showComments,
+          relatedFieldKeysByTable.get(table.id),
+        ),
       );
     });
 
     views.forEach((view) => {
-      minMaxXY.minX = Math.min(minMaxXY.minX, view.x);
-      minMaxXY.minY = Math.min(minMaxXY.minY, view.y);
-      minMaxXY.maxX = Math.max(minMaxXY.maxX, view.x + getViewWidth(view));
-      minMaxXY.maxY = Math.max(
-        minMaxXY.maxY,
-        view.y +
-          getViewHeight(
-            view,
-            resolveViewColumns(view, tables),
-            settings.showComments,
-          ),
+      addBounds(
+        view.x,
+        view.y,
+        getViewWidth(view),
+        getViewHeight(
+          view,
+          resolveViewColumns(view, tables),
+          settings.showComments,
+        ),
       );
     });
 
     areas.forEach((area) => {
-      minMaxXY.minX = Math.min(minMaxXY.minX, area.x);
-      minMaxXY.minY = Math.min(minMaxXY.minY, area.y);
-      minMaxXY.maxX = Math.max(minMaxXY.maxX, area.x + area.width);
-      minMaxXY.maxY = Math.max(minMaxXY.maxY, area.y + area.height);
+      addBounds(area.x, area.y, area.width, area.height);
     });
 
     notes.forEach((note) => {
-      minMaxXY.minX = Math.min(minMaxXY.minX, note.x);
-      minMaxXY.minY = Math.min(minMaxXY.minY, note.y);
-      minMaxXY.maxX = Math.max(
-        minMaxXY.maxX,
-        note.x + (note.width ?? noteWidth),
-      );
-      minMaxXY.maxY = Math.max(minMaxXY.maxY, note.y + note.height);
+      addBounds(note.x, note.y, note.width ?? noteWidth, note.height);
     });
 
-    const padding = 10;
-    const width = minMaxXY.maxX - minMaxXY.minX + padding;
-    const height = minMaxXY.maxY - minMaxXY.minY + padding;
-
-    const scaleX = canvas.width / width;
-    const scaleY = canvas.height / height;
-    // Making sure the scale is a multiple of 0.05
-    const scale = Math.floor(Math.min(scaleX, scaleY) * 20) / 20;
-
-    const centerX = (minMaxXY.minX + minMaxXY.maxX) / 2;
-    const centerY = (minMaxXY.minY + minMaxXY.maxY) / 2;
+    const fitTransform = calculateFitTransform({
+      canvasWidth: canvas.width,
+      canvasHeight: canvas.height,
+      ...minMaxXY,
+    });
+    if (!fitTransform) return;
 
     setTransform((prev) => ({
       ...prev,
-      zoom: scale,
-      pan: { x: centerX, y: centerY },
+      ...fitTransform,
     }));
   };
   const [arrangeMenuOpen, setArrangeMenuOpen] = useState(false);

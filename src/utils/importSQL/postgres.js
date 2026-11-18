@@ -53,9 +53,9 @@ export function fromPostgres(ast, diagramDb = DB.GENERIC) {
               ),
             )?.name;
 
-            type ??=
-              dbToTypes[diagramDb][d.definition.dataType.toUpperCase()].type;
-            type ??= affinity[diagramDb][d.definition.dataType.toUpperCase()];
+            const dataType = d.definition?.dataType?.toUpperCase();
+            type ??= dbToTypes[diagramDb][dataType]?.type;
+            type ??= affinity[diagramDb][dataType];
 
             field.type = type;
 
@@ -100,7 +100,7 @@ export function fromPostgres(ast, diagramDb = DB.GENERIC) {
                   .map((v) => v.value ?? v.expr.value)
                   .join(", ")}]`;
               } else {
-                defaultValue = d.default_val.value.value.toString();
+                defaultValue = d.default_val.value?.value?.toString?.() ?? "";
               }
               field.default = defaultValue;
             }

@@ -6,6 +6,7 @@ const ALLOWED_LAYOUTS = new Set([
   "elk_layered",
   "elk_stress",
   "by_subject_area",
+  "by_module",
 ]);
 
 const TABLE_UPDATE_KEYS = new Set(["name", "comment", "fields", "x", "y"]);
@@ -95,6 +96,60 @@ function fieldRef(value, idKey, nameKey) {
     id: value?.[idKey],
     name: value?.[nameKey],
   };
+}
+
+function layoutTableRefs(group) {
+  if (Array.isArray(group?.tableIds)) {
+    return group.tableIds.map((id) => ({ id }));
+  }
+  if (Array.isArray(group?.tableNames)) {
+    return group.tableNames.map((name) => ({ name }));
+  }
+  if (Array.isArray(group?.tables)) {
+    return group.tables.map((table) =>
+      typeof table === "string" ? { name: table } : table,
+    );
+  }
+  return [];
+}
+
+function validateLayout(layout, diagram, errors) {
+  if (!layout || typeof layout !== "object") return;
+  if (!layout.engineId) return;
+
+  if (layout.engineId !== "by_module") return;
+  if (!Array.isArray(layout.groups) || layout.groups.length === 0) {
+    errors.push("The by_module layout requires at least one group.");
+    return;
+  }
+
+  const seenTableIds = new Set();
+  for (const group of layout.groups) {
+    if (!group || typeof group !== "object") {
+      errors.push("Every module layout group must be an object.");
+      continue;
+    }
+    const refs = layoutTableRefs(group);
+    if (!refs.length) {
+      errors.push(
+        `Module layout group "${group.name || "unnamed"}" has no tables.`,
+      );
+      continue;
+    }
+    for (const ref of refs) {
+      const table = findByIdOrName(listFor(diagram).tables, ref?.id, ref?.name);
+      if (!table.item) {
+        errors.push(
+          `Could not resolve ${ref?.id || ref?.name || "a module table"}.`,
+        );
+        continue;
+      }
+      if (seenTableIds.has(table.item.id)) {
+        errors.push(`Table "${table.item.name}" appears in multiple modules.`);
+      }
+      seenTableIds.add(table.item.id);
+    }
+  }
 }
 
 function relationshipKey(relationship) {
@@ -300,6 +355,7 @@ export function validateAiPlan(plan, diagram) {
   if (plan.layout?.engineId && !ALLOWED_LAYOUTS.has(plan.layout.engineId)) {
     errors.push(`Unsupported layout engine "${plan.layout.engineId}".`);
   }
+  validateLayout(plan.layout, diagram, errors);
 
   const knownKeys = new Set(
     listFor(diagram).relationships.map((relationship) =>
@@ -379,6 +435,28 @@ function resolveRelationship(diagram, operation) {
   return findByIdOrName(relationships, operation.id, operation.name).item;
 }
 
+function normalizeLayout(layout, diagram) {
+  if (!layout?.engineId) return undefined;
+
+  const normalized = { engineId: layout.engineId };
+  if (layout.engineId !== "by_module") return normalized;
+
+  normalized.columns = Number.isInteger(layout.columns)
+    ? Math.max(1, Math.min(8, layout.columns))
+    : 4;
+  normalized.groups = layout.groups.map((group) => ({
+    name: String(group.name ?? "").trim(),
+    tableIds: layoutTableRefs(group)
+      .map(
+        (ref) =>
+          findByIdOrName(listFor(diagram).tables, ref?.id, ref?.name).item,
+      )
+      .filter(Boolean)
+      .map((table) => table.id),
+  }));
+  return normalized;
+}
+
 export function normalizeAiPlan(plan, diagram) {
   const validation = validateAiPlan(plan, diagram);
   if (!validation.valid) {
@@ -390,7 +468,7 @@ export function normalizeAiPlan(plan, diagram) {
     warnings: validation.warnings,
     operations: [],
     ...(plan.layout?.engineId && {
-      layout: { engineId: plan.layout.engineId },
+      layout: normalizeLayout(plan.layout, diagram),
     }),
   };
 

@@ -7,6 +7,7 @@ import {
   describeAiPlan,
   applyPlanToDiagram,
 } from "./aiPlan.js";
+import { runLayout } from "./layout.js";
 
 const diagram = {
   database: "postgresql",
@@ -126,6 +127,77 @@ test("applyPlanToDiagram applies table operations without mutating input", () =>
   });
   assert.equal(result.tables[0].name, "accounts");
   assert.equal(diagram.tables[0].name, "users");
+});
+
+test("AI table position updates survive normalization and application", () => {
+  const plan = normalizeAiPlan(
+    {
+      operations: [
+        {
+          target: "table",
+          action: "update",
+          id: "users",
+          values: { x: 640, y: 320 },
+        },
+      ],
+    },
+    diagram,
+  );
+  const result = applyPlanToDiagram(diagram, plan);
+
+  assert.deepEqual(
+    { x: result.tables[0].x, y: result.tables[0].y },
+    { x: 640, y: 320 },
+  );
+});
+
+test("module layout plans preserve groups and move table positions", () => {
+  const current = {
+    ...diagram,
+    tables: [
+      { ...diagram.tables[0], locked: false },
+      {
+        id: "orders",
+        name: "orders",
+        x: 0,
+        y: 0,
+        fields: [{ id: "orders-id", name: "id", type: "INTEGER" }],
+      },
+    ],
+  };
+  const plan = normalizeAiPlan(
+    {
+      operations: [],
+      layout: {
+        engineId: "by_module",
+        columns: 4,
+        groups: [
+          { name: "identity", tableIds: ["users"] },
+          { name: "work", tableIds: ["orders"] },
+        ],
+      },
+    },
+    current,
+  );
+  const result = runLayout(
+    plan.layout.engineId,
+    {
+      ...current,
+      areas: [],
+      settings: { showComments: true },
+    },
+    plan.layout,
+  );
+
+  assert.deepEqual(plan.layout.groups, [
+    { name: "identity", tableIds: ["users"] },
+    { name: "work", tableIds: ["orders"] },
+  ]);
+  assert.equal(result.tables.length, 2);
+  assert.notDeepEqual(result.tables, [
+    { id: "users", x: 10, y: 20 },
+    { id: "orders", x: 0, y: 0 },
+  ]);
 });
 
 test("describeAiPlan returns counts for preview", () => {

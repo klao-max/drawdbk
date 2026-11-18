@@ -228,12 +228,16 @@ export default function AiContextProvider({ children }) {
         const next = applyPlanToDiagram(current, normalized);
 
         if (normalized.layout?.engineId) {
-          const layoutResult = await runLayout(normalized.layout.engineId, {
-            tables: next.tables,
-            relationships: next.relationships,
-            areas,
-            settings: editorSettings,
-          });
+          const layoutResult = await runLayout(
+            normalized.layout.engineId,
+            {
+              tables: next.tables,
+              relationships: next.relationships,
+              areas,
+              settings: editorSettings,
+            },
+            normalized.layout,
+          );
           const positionsById = new Map(
             layoutResult.tables.map((position) => [position.id, position]),
           );

@@ -29,10 +29,11 @@ export const layoutEngines = [
   { id: "by_subject_area", run: (diagram) => arrangeBySubjectArea(diagram) },
 ];
 
-export function runLayout(engineId, diagram) {
+export function runLayout(engineId, diagram, options = {}) {
+  if (engineId === "by_module") return arrangeByModule(diagram, options);
   const engine = layoutEngines.find((e) => e.id === engineId);
   if (!engine) throw new Error(`Unknown layout engine: ${engineId}`);
-  return engine.run(diagram);
+  return engine.run(diagram, options);
 }
 
 const tableSpacing = 60;
@@ -415,4 +416,135 @@ function arrangeBySubjectArea({ tables, relationships, areas, settings }) {
   }
 
   return { tables: arrangedTables, areas: arrangedAreas };
+}
+
+const modulePadding = 50;
+const moduleTableGap = 60;
+const moduleSpacing = 120;
+
+function arrangeModuleGroup(groupTables, relationships, settings, columns) {
+  const groupTableIds = new Set(groupTables.map((table) => table.id));
+  const relatedFieldKeysByTable = getRelatedFieldKeysByTable(
+    relationships.filter(
+      (relationship) =>
+        groupTableIds.has(relationship.startTableId) &&
+        groupTableIds.has(relationship.endTableId),
+    ),
+  );
+  const tableRects = groupTables.map((table) => ({
+    table,
+    width: getTableWidth(table),
+    height: getTableHeight(
+      table,
+      settings.showComments,
+      relatedFieldKeysByTable.get(table.id),
+    ),
+  }));
+  const columnCount = Math.max(1, Math.min(columns, tableRects.length));
+  const rowCount = Math.ceil(tableRects.length / columnCount);
+  const columnWidths = Array.from({ length: columnCount }, () => 0);
+  const rowHeights = Array.from({ length: rowCount }, () => 0);
+
+  tableRects.forEach((rectangle, index) => {
+    const column = index % columnCount;
+    const row = Math.floor(index / columnCount);
+    columnWidths[column] = Math.max(columnWidths[column], rectangle.width);
+    rowHeights[row] = Math.max(rowHeights[row], rectangle.height);
+  });
+
+  const columnOffsets = columnWidths.map((_, index) =>
+    columnWidths
+      .slice(0, index)
+      .reduce((sum, width) => sum + width + moduleTableGap, 0),
+  );
+  const rowOffsets = rowHeights.map((_, index) =>
+    rowHeights
+      .slice(0, index)
+      .reduce((sum, height) => sum + height + moduleTableGap, 0),
+  );
+  const width =
+    modulePadding * 2 +
+    columnWidths.reduce((sum, value) => sum + value, 0) +
+    moduleTableGap * Math.max(0, columnCount - 1);
+  const height =
+    modulePadding * 2 +
+    rowHeights.reduce((sum, value) => sum + value, 0) +
+    moduleTableGap * Math.max(0, rowCount - 1);
+
+  return {
+    width,
+    height,
+    tablePositions: tableRects
+      .map(({ table }, index) =>
+        table.locked
+          ? null
+          : {
+              id: table.id,
+              x: modulePadding + columnOffsets[index % columnCount],
+              y: modulePadding + rowOffsets[Math.floor(index / columnCount)],
+            },
+      )
+      .filter(Boolean),
+  };
+}
+
+function arrangeByModule({ tables, relationships, settings }, options = {}) {
+  const tablesById = new Map(tables.map((table) => [table.id, table]));
+  const assignedTableIds = new Set();
+  const groups = [];
+
+  for (const group of options.groups ?? []) {
+    const groupTables = [];
+    for (const tableId of group.tableIds ?? []) {
+      const table = tablesById.get(tableId);
+      if (!table || assignedTableIds.has(table.id)) continue;
+      assignedTableIds.add(table.id);
+      groupTables.push(table);
+    }
+    if (groupTables.length) groups.push(groupTables);
+  }
+
+  const unassignedTables = tables.filter(
+    (table) => !assignedTableIds.has(table.id),
+  );
+  if (unassignedTables.length) groups.push(unassignedTables);
+
+  const columns = Number.isInteger(options.columns)
+    ? Math.max(1, Math.min(8, options.columns))
+    : 4;
+  const moduleGroups = groups.map((groupTables) => ({
+    ...arrangeModuleGroup(groupTables, relationships, settings, columns),
+  }));
+  const totalFootprint = moduleGroups.reduce(
+    (sum, group) =>
+      sum + (group.width + moduleSpacing) * (group.height + moduleSpacing),
+    0,
+  );
+  const rowWidthLimit = Math.max(
+    ...moduleGroups.map((group) => group.width),
+    Math.sqrt(totalFootprint * targetAspectRatio),
+  );
+
+  const arrangedTables = [];
+  let cursorX = 0;
+  let cursorY = 0;
+  let currentRowHeight = 0;
+  for (const group of moduleGroups) {
+    if (cursorX > 0 && cursorX + group.width > rowWidthLimit) {
+      cursorX = 0;
+      cursorY += currentRowHeight + moduleSpacing;
+      currentRowHeight = 0;
+    }
+    for (const position of group.tablePositions) {
+      arrangedTables.push({
+        id: position.id,
+        x: cursorX + position.x,
+        y: cursorY + position.y,
+      });
+    }
+    cursorX += group.width + moduleSpacing;
+    currentRowHeight = Math.max(currentRowHeight, group.height);
+  }
+
+  return { tables: arrangedTables, areas: [] };
 }

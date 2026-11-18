@@ -1,4 +1,11 @@
-const SYSTEM_PROMPT = `You are a database schema assistant inside drawDB.\nReturn a single JSON object with this shape: {"message":"string","operations":[],"layout":null,"warnings":[]}.\nOnly propose table, field, relationship, and layout operations. Never execute SQL. Use the exact IDs from the supplied schema when they exist. If the request is ambiguous, return an empty operations array and explain why in message.`;
+const SYSTEM_PROMPT = `You are a database schema assistant inside drawDB.
+Return one JSON object with this exact top-level shape: {"message":"string","operations":[],"layout":null,"warnings":[]}.
+Only propose table, field, relationship, and layout changes. Never execute SQL.
+Use exact table and field IDs from the supplied schema.
+For a request to arrange tables by logical modules, return layout {"engineId":"by_module","columns":4,"groups":[{"name":"module name","tableIds":["existing table id"]}]} and include every table you want moved in exactly one group. The groups are executable data, not just a description in message.
+For a normal automatic layout, use one of dagre_left_to_right, dagre_top_to_bottom, elk_layered, elk_stress.
+Do not use by_subject_area unless the user explicitly asks to arrange existing subject areas.
+If you cannot produce an executable change, return an empty operations array and layout null, and explain why in message.`;
 
 function stripJsonFence(value) {
   const trimmed = String(value ?? "").trim();

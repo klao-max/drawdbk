@@ -1,4 +1,4 @@
-import { useContext, useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { Slot, useExtensions } from "../../context/ExtensionsContext";
 import { createPortal } from "react-dom";
@@ -46,7 +46,6 @@ import {
   SIDESHEET,
   DB,
   IMPORT_FROM,
-  noteWidth,
   pngExportPixelRatio,
   keyboardPanStep,
 } from "../../data/constants";
@@ -102,17 +101,8 @@ import { applyDiagramPlan } from "../../utils/dbml/applyPlan";
 import { diffDiagram } from "../../utils/dbml/diff";
 import { exportSavedData } from "../../utils/exportSavedData";
 import { nanoid } from "nanoid";
-import {
-  getRelatedFieldKeysByTable,
-  getTableHeight,
-  getTableWidth,
-} from "../../utils/utils";
-import {
-  getViewHeight,
-  getViewWidth,
-  resolveViewColumns,
-} from "../../utils/views";
 import { calculateFitTransform } from "../../utils/fitTransform";
+import { calculateDiagramBounds } from "../../utils/diagramBounds";
 import { layoutEngines, runLayout } from "../../utils/layout";
 import { schemaQueries } from "../../utils/importFrom/schemaQuery";
 import { findAutoFKRelationships } from "../../utils/autoRelationships";
@@ -184,6 +174,16 @@ export default function ControlPanel({
       return new Set();
     }
   });
+  const fitFrameRef = useRef(null);
+
+  useEffect(
+    () => () => {
+      if (fitFrameRef.current !== null) {
+        cancelAnimationFrame(fitFrameRef.current);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!startWith) return;
@@ -737,77 +737,50 @@ export default function ControlPanel({
   };
   const resetView = () =>
     setTransform((prev) => ({ ...prev, zoom: 1, pan: { x: 0, y: 0 } }));
-  const fitWindow = () => fitToView(tables);
-  const fitToView = (tablesToFit) => {
-    const canvasElement = document.getElementById("canvas");
-    if (!canvasElement) return;
-    const canvas = canvasElement.getBoundingClientRect();
+  const fitWindow = () =>
+    fitToView({ tables, relationships, views, areas, notes });
+  const fitToView = (elements) => {
+    if (fitFrameRef.current !== null) {
+      cancelAnimationFrame(fitFrameRef.current);
+    }
 
-    const minMaxXY = {
-      minX: Infinity,
-      minY: Infinity,
-      maxX: -Infinity,
-      maxY: -Infinity,
+    const request = {
+      tables: elements?.tables ?? [],
+      relationships: elements?.relationships ?? [],
+      views: elements?.views ?? [],
+      areas: elements?.areas ?? [],
+      notes: elements?.notes ?? [],
     };
-    const addBounds = (x, y, width, height) => {
-      if (
-        ![x, y, width, height].every((value) => Number.isFinite(value)) ||
-        width < 0 ||
-        height < 0
-      )
+    let attempts = 0;
+    const fit = () => {
+      const canvasElement = document.getElementById("canvas");
+      const canvas = canvasElement?.getBoundingClientRect();
+      if ((!canvas || canvas.width <= 0 || canvas.height <= 0) && attempts < 10) {
+        attempts += 1;
+        fitFrameRef.current = requestAnimationFrame(fit);
         return;
-      minMaxXY.minX = Math.min(minMaxXY.minX, x);
-      minMaxXY.minY = Math.min(minMaxXY.minY, y);
-      minMaxXY.maxX = Math.max(minMaxXY.maxX, x + width);
-      minMaxXY.maxY = Math.max(minMaxXY.maxY, y + height);
+      }
+
+      fitFrameRef.current = null;
+      if (!canvas || canvas.width <= 0 || canvas.height <= 0) return;
+
+      const bounds = calculateDiagramBounds({
+        ...request,
+        showComments: settings.showComments,
+      });
+      if (!bounds) return;
+
+      const fitTransform = calculateFitTransform({
+        canvasWidth: canvas.width,
+        canvasHeight: canvas.height,
+        ...bounds,
+      });
+      if (!fitTransform) return;
+
+      setTransform((prev) => ({ ...prev, ...fitTransform }));
     };
 
-    const relatedFieldKeysByTable = getRelatedFieldKeysByTable(relationships);
-    (tablesToFit ?? []).forEach((table) => {
-      addBounds(
-        table.x,
-        table.y,
-        getTableWidth(table),
-        getTableHeight(
-          table,
-          settings.showComments,
-          relatedFieldKeysByTable.get(table.id),
-        ),
-      );
-    });
-
-    views.forEach((view) => {
-      addBounds(
-        view.x,
-        view.y,
-        getViewWidth(view),
-        getViewHeight(
-          view,
-          resolveViewColumns(view, tables),
-          settings.showComments,
-        ),
-      );
-    });
-
-    areas.forEach((area) => {
-      addBounds(area.x, area.y, area.width, area.height);
-    });
-
-    notes.forEach((note) => {
-      addBounds(note.x, note.y, note.width ?? noteWidth, note.height);
-    });
-
-    const fitTransform = calculateFitTransform({
-      canvasWidth: canvas.width,
-      canvasHeight: canvas.height,
-      ...minMaxXY,
-    });
-    if (!fitTransform) return;
-
-    setTransform((prev) => ({
-      ...prev,
-      ...fitTransform,
-    }));
+    fitFrameRef.current = requestAnimationFrame(fit);
   };
   const [arrangeMenuOpen, setArrangeMenuOpen] = useState(false);
   const autoArrangeTables = async (engineId) => {
@@ -878,7 +851,7 @@ export default function ControlPanel({
       },
     ]);
     setRedoStack([]);
-    fitToView(arrangedTables);
+    fitToView({ tables: arrangedTables, relationships, views, areas, notes });
   };
   const autoConnectFKs = () => {
     if (layout.readOnly) return;

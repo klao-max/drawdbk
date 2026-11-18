@@ -20,7 +20,6 @@ import {
   useNavigateWithParams,
   useNotes,
   useSettings,
-  useTransform,
   useTypes,
   useUndoRedo,
   useViews,
@@ -73,14 +72,19 @@ export default function Modal({
   onBack,
 }) {
   const { t, i18n } = useTranslation();
-  const { tables, setTables, setRelationships, database, setSqlHeader } =
-    useDiagram();
-  const { setNotes } = useNotes();
-  const { setAreas } = useAreas();
+  const {
+    tables,
+    relationships,
+    setTables,
+    setRelationships,
+    database,
+    setSqlHeader,
+  } = useDiagram();
+  const { notes, setNotes } = useNotes();
+  const { areas, setAreas } = useAreas();
   const { setTypes } = useTypes();
   const { setEnums } = useEnums();
-  const { setViews } = useViews();
-  const { setTransform } = useTransform();
+  const { views, setViews } = useViews();
   const { setUndoStack, setRedoStack } = useUndoRedo();
   const { settings } = useSettings();
   const [uncontrolledTitle, setUncontrolledTitle] = useState(title);
@@ -126,6 +130,13 @@ export default function Modal({
       mergeCustomTypes(importData.customTypes);
     }
     setSqlHeader(importData.sqlHeader ?? "");
+    fitToView({
+      tables: importData.tables,
+      relationships: importData.relationships,
+      views: importData.views ?? [],
+      areas: importData.subjectAreas ?? [],
+      notes: importData.notes ?? [],
+    });
   };
 
   const parseSQLAndLoadDiagram = () => {
@@ -221,7 +232,6 @@ export default function Modal({
       setRelationships(diagramData.relationships);
       if (databases[database].hasTypes) setTypes(diagramData.types ?? []);
       if (databases[database].hasEnums) setEnums(diagramData.enums ?? []);
-      setTransform((prev) => ({ ...prev, pan: { x: 0, y: 0 } }));
       setNotes([]);
       setAreas([]);
       setViews([]);
@@ -242,11 +252,17 @@ export default function Modal({
     setUndoStack([]);
     setRedoStack([]);
     if (diagramData.tables.length) {
-      fitToView(
-        importSource.overwrite
+      fitToView({
+        tables: importSource.overwrite
           ? diagramData.tables
           : [...tables, ...diagramData.tables],
-      );
+        relationships: importSource.overwrite
+          ? diagramData.relationships
+          : [...relationships, ...diagramData.relationships],
+        views: importSource.overwrite ? [] : views,
+        areas: importSource.overwrite ? [] : areas,
+        notes: importSource.overwrite ? [] : notes,
+      });
     }
 
     setModal(MODAL.NONE);
@@ -304,7 +320,6 @@ export default function Modal({
       }
       case MODAL.IMPORT:
         if (error.type !== STATUS.ERROR) {
-          setTransform((prev) => ({ ...prev, pan: { x: 0, y: 0 } }));
           overwriteDiagram();
           setImportData(null);
           setModal(MODAL.NONE);

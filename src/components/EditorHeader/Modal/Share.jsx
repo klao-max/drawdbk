@@ -30,6 +30,7 @@ import { create, patch, SHARE_FILENAME } from "../../../api/gists";
 import { getCustomTypes } from "../../../utils/customTypes";
 import { Slot, useExtensions } from "../../../context/ExtensionsContext";
 import { queryConfig } from "../../../utils/queryConfig";
+import { encodeInlineShare } from "../../../utils/inlineShare";
 
 export default function Share({ title, setModal }) {
   const { t } = useTranslation();
@@ -43,6 +44,7 @@ export default function Share({ title, setModal }) {
   const { views } = useViews();
   const { transform } = useTransform();
   const [error, setError] = useState(null);
+  const [inlinePayload, setInlinePayload] = useState("");
 
   const extensions = useExtensions();
   const customContent = extensions?.["share-modal-content"];
@@ -55,16 +57,20 @@ export default function Share({ title, setModal }) {
   });
 
   const url = useMemo(() => {
-    const baseUrl = window.location.origin + "/editor?shareId=" + gistId;
+    const baseUrl = window.location.origin + "/editor";
     const params = new URLSearchParams();
+    if (!inlinePayload) params.append("shareId", gistId);
     Object.entries(embedSettings).forEach(([key, value]) => {
       if (value) {
         params.append(queryConfig[key].key, value);
       }
     });
     const queryString = params.toString();
-    return queryString ? baseUrl + "&" + queryString : baseUrl;
-  }, [gistId, embedSettings]);
+    const hash = inlinePayload
+      ? `#shareData=${encodeURIComponent(inlinePayload)}`
+      : "";
+    return queryString ? `${baseUrl}?${queryString}${hash}` : `${baseUrl}${hash}`;
+  }, [gistId, embedSettings, inlinePayload]);
 
   const diagramToString = useCallback(() => {
     const allCustomTypes = getCustomTypes();
@@ -111,6 +117,11 @@ export default function Share({ title, setModal }) {
   ]);
 
   const unshare = useCallback(async () => {
+    if (inlinePayload) {
+      setInlinePayload("");
+      setModal(MODAL.NONE);
+      return;
+    }
     try {
       const deleted = await patch(gistId, SHARE_FILENAME, undefined);
       if (deleted) {
@@ -121,7 +132,7 @@ export default function Share({ title, setModal }) {
       console.error(e);
       setError(e);
     }
-  }, [gistId, setModal, setGistId]);
+  }, [gistId, inlinePayload, setModal, setGistId]);
 
   useEffect(() => {
     if (customContent) {
@@ -138,7 +149,14 @@ export default function Share({ title, setModal }) {
           await patch(gistId, SHARE_FILENAME, diagramToString());
         }
       } catch (e) {
-        setError(e);
+        try {
+          const payload = await encodeInlineShare(diagramToString());
+          setGistId("");
+          setInlinePayload(payload);
+          setError(null);
+        } catch (fallbackError) {
+          setError(fallbackError ?? e);
+        }
       } finally {
         setLoading(false);
       }

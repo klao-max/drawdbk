@@ -41,6 +41,7 @@ import { isRtl } from "../i18n/utils/rtl";
 import { useMatch, useParams, useSearchParams } from "react-router-dom";
 import { get, SHARE_FILENAME } from "../api/gists";
 import { mergeCustomTypes } from "../utils/customTypes";
+import { decodeInlineShare, getInlineSharePayload } from "../utils/inlineShare";
 import {
   readDismissedBanners,
   addDismissedBanner,
@@ -74,6 +75,7 @@ export default function WorkSpace({ forcedDiagramId } = {}) {
     useState(readDismissedBanners);
   const pendingNewIdRef = useRef(null);
   const loadedIdRef = useRef(null);
+  const inlineShareLoadedRef = useRef(false);
   const { layout, setLayout } = useLayout();
   const { settings } = useSettings();
   const { types, setTypes } = useTypes();
@@ -152,6 +154,17 @@ export default function WorkSpace({ forcedDiagramId } = {}) {
     if (searchParams.has("shareId")) {
       searchParams.delete("shareId");
       setSearchParams(searchParams, { replace: true });
+    }
+    if (
+      inlineShareLoadedRef.current &&
+      window.location.hash.startsWith("#shareData=")
+    ) {
+      window.history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${window.location.search}`,
+      );
+      inlineShareLoadedRef.current = false;
     }
 
     if (cloudOnly && diagramSource !== "local") {
@@ -431,6 +444,37 @@ export default function WorkSpace({ forcedDiagramId } = {}) {
       }
     };
 
+    const loadFromInlineShare = async () => {
+      try {
+        const payload = getInlineSharePayload();
+        if (!payload) return false;
+        const parsed = JSON.parse(await decodeInlineShare(payload));
+        inlineShareLoadedRef.current = true;
+        setDiagramSource(null);
+        setUndoStack([]);
+        setRedoStack([]);
+        setGistId("");
+        setLoadedFromGistId("");
+        setDatabase(parsed.database || DB.GENERIC);
+        setTitle(parsed.title || "Untitled diagram");
+        setTables(parsed.tables ?? []);
+        setRelationships(parsed.relationships ?? []);
+        setNotes(parsed.notes ?? []);
+        setAreas(parsed.subjectAreas ?? []);
+        setTransform(parsed.transform ?? { zoom: 1, pan: { x: 0, y: 0 } });
+        setTypes(parsed.types ?? []);
+        setEnums(parsed.enums ?? []);
+        setViews(parsed.views ?? []);
+        setSqlHeader(parsed.sqlHeader ?? "");
+        if (parsed.customTypes) mergeCustomTypes(parsed.customTypes);
+        return true;
+      } catch (e) {
+        console.log(e);
+        setSaveState(State.FAILED_TO_LOAD);
+        return true;
+      }
+    };
+
     const shareId = searchParams.get("shareId");
     if (shareId) {
       const existingDiagram = await db.diagrams.get({
@@ -439,6 +483,8 @@ export default function WorkSpace({ forcedDiagramId } = {}) {
       await loadFromGist(shareId, existingDiagram?.diagramId || null);
       return;
     }
+
+    if (await loadFromInlineShare()) return;
 
     if (!loadedDiagramId) {
       if (cloudOnly) {

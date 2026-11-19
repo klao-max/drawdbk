@@ -129,6 +129,25 @@ test("applyPlanToDiagram applies table operations without mutating input", () =>
   assert.equal(diagram.tables[0].name, "users");
 });
 
+test("AI table rename accepts tableId references", () => {
+  const plan = normalizeAiPlan(
+    {
+      operations: [
+        {
+          target: "table",
+          action: "update",
+          tableId: "users",
+          values: { name: "用户（users）" },
+        },
+      ],
+    },
+    diagram,
+  );
+  const result = applyPlanToDiagram(diagram, plan);
+
+  assert.equal(result.tables[0].name, "用户（users）");
+});
+
 test("AI table position updates survive normalization and application", () => {
   const plan = normalizeAiPlan(
     {

@@ -16,6 +16,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { useAi, useDiagram, useLayout } from "../hooks";
 import { databases } from "../data/databases";
+import { renderAiMarkdown } from "../utils/aiMarkdown";
 
 function operationText(operation) {
   const action = operation.action ?? "update";
@@ -249,7 +250,16 @@ export default function AiChatPanel() {
                       : "bg-[var(--semi-color-fill-0)]"
                   }`}
                 >
-                  <div className="whitespace-pre-wrap">{message.content}</div>
+                  {message.role === "assistant" ? (
+                    <div
+                      className="ai-markdown min-w-0 break-words [&_a]:text-blue-600 [&_a]:underline [&_code]:rounded [&_code]:bg-[var(--semi-color-fill-2)] [&_code]:px-1 [&_code]:py-0.5 [&_h1]:mb-2 [&_h1]:text-lg [&_h1]:font-semibold [&_h2]:mb-2 [&_h2]:text-base [&_h2]:font-semibold [&_h3]:mb-1 [&_h3]:font-semibold [&_li]:ms-4 [&_li]:list-disc [&_ol]:my-2 [&_p]:mb-2 [&_p:last-child]:mb-0 [&_pre]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-[var(--semi-color-fill-2)] [&_pre]:p-2 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_ul]:my-2"
+                      dangerouslySetInnerHTML={{
+                        __html: renderAiMarkdown(message.content),
+                      }}
+                    />
+                  ) : (
+                    <div className="whitespace-pre-wrap">{message.content}</div>
+                  )}
                   {message.warnings?.length > 0 && (
                     <div className="mt-2 space-y-1 text-xs text-amber-700 dark:text-amber-300">
                       {message.warnings.slice(0, 3).map((warning, index) => (

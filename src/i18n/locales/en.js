@@ -99,6 +99,7 @@ const en = {
     add_note: "Add note",
     add_type: "Add type",
     tables: "Tables",
+    fields: "Fields",
     relationships: "Relationships",
     subject_areas: "Subject areas",
     notes: "Notes",
@@ -108,6 +109,8 @@ const en = {
     no_tables_text: "Start building your diagram!",
     no_relationships: "No relationships",
     no_relationships_text: "Drag to connect columns and form relationships!",
+    no_table_fields: "No fields",
+    no_table_relationships: "No relationships",
     no_subject_areas: "No subject areas",
     no_subject_areas_text: "Add subject areas to group tables!",
     no_notes: "No notes",
@@ -383,6 +386,10 @@ const en = {
     ai_api_key_saved_for_session: "API key is already set for this session",
     ai_api_key_session_only:
       "The API key stays in memory and is cleared when this page reloads.",
+    ai_remember_api_key: "Remember API key in this browser",
+    ai_api_key_browser_storage:
+      "The API key is stored in this browser so it survives page reloads.",
+    ai_clear_api_key: "Clear API key",
     ai_hosted_client_available:
       "This app provides a hosted AI client. The API key field is not required.",
     ai_model_required: "Enter a model name.",

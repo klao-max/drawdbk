@@ -20,6 +20,11 @@ import {
 import { diffDiagram } from "../utils/dbml/diff";
 import { applyDiagramPlan } from "../utils/dbml/applyPlan";
 import { runLayout } from "../utils/layout";
+import {
+  clearStoredAiApiKey,
+  loadStoredAiApiKey,
+  saveStoredAiApiKey,
+} from "../utils/aiKeyStorage";
 
 const STORAGE_KEY = "drawdb:aiSettings";
 
@@ -29,6 +34,7 @@ export const DEFAULT_AI_SETTINGS = {
   baseUrl: "https://api.openai.com/v1",
   model: "",
   temperature: 0.2,
+  rememberApiKey: false,
 };
 
 export const AiContext = createContext(null);
@@ -53,10 +59,18 @@ function loadSettings() {
 
 function persistSettings(settings) {
   if (typeof localStorage === "undefined") return;
-  const { enabled, provider, baseUrl, model, temperature } = settings;
+  const { enabled, provider, baseUrl, model, temperature, rememberApiKey } =
+    settings;
   localStorage.setItem(
     STORAGE_KEY,
-    JSON.stringify({ enabled, provider, baseUrl, model, temperature }),
+    JSON.stringify({
+      enabled,
+      provider,
+      baseUrl,
+      model,
+      temperature,
+      rememberApiKey: Boolean(rememberApiKey),
+    }),
   );
 }
 
@@ -72,7 +86,10 @@ export default function AiContextProvider({ children }) {
   const { setUndoStack, setRedoStack } = useUndoRedo();
 
   const [aiSettings, setAiSettings] = useState(loadSettings);
-  const [apiKey, setApiKey] = useState("");
+  const [apiKey, setApiKeyState] = useState(() => {
+    const settings = loadSettings();
+    return settings.rememberApiKey ? loadStoredAiApiKey() : "";
+  });
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -110,6 +127,17 @@ export default function AiContextProvider({ children }) {
       persistSettings(next);
       return next;
     });
+  }, []);
+
+  const saveApiKey = useCallback((value, remember) => {
+    const nextApiKey = String(value ?? "").trim();
+    setApiKeyState(nextApiKey);
+    saveStoredAiApiKey(undefined, nextApiKey, remember);
+  }, []);
+
+  const clearApiKey = useCallback(() => {
+    setApiKeyState("");
+    clearStoredAiApiKey();
   }, []);
 
   const clearConversation = useCallback(() => {
@@ -348,8 +376,9 @@ export default function AiContextProvider({ children }) {
       applyPlan,
       restore,
       saveAiSettings,
+      saveApiKey,
       sendMessage,
-      setApiKey,
+      clearApiKey,
       settingsOpen,
       status,
     }),
@@ -360,6 +389,7 @@ export default function AiContextProvider({ children }) {
       clearConversation,
       close,
       closeSettings,
+      clearApiKey,
       dismissPlan,
       error,
       extensionAiAvailable,
@@ -371,6 +401,7 @@ export default function AiContextProvider({ children }) {
       open,
       openSettings,
       saveAiSettings,
+      saveApiKey,
       sendMessage,
       settingsOpen,
       status,

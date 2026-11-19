@@ -15,10 +15,11 @@ export default function AiSettingsModal() {
   const {
     aiSettings,
     apiKey,
+    clearApiKey,
     closeSettings,
     extensionAiAvailable,
     saveAiSettings,
-    setApiKey,
+    saveApiKey,
     settingsOpen,
   } = useAi();
   const [draft, setDraft] = useState(aiSettings);
@@ -65,8 +66,14 @@ export default function AiSettingsModal() {
       baseUrl: draft.baseUrl.trim(),
       model: draft.model.trim(),
       temperature: Number(draft.temperature) || 0.2,
+      rememberApiKey: Boolean(draft.rememberApiKey),
     });
-    if (draftApiKey.trim()) setApiKey(draftApiKey.trim());
+    const nextApiKey = draftApiKey.trim() || apiKey;
+    if (nextApiKey) {
+      saveApiKey(nextApiKey, draft.rememberApiKey);
+    } else if (!draft.rememberApiKey) {
+      clearApiKey();
+    }
     closeSettings();
   };
 
@@ -141,7 +148,24 @@ export default function AiSettingsModal() {
               }
             />
             <div className="text-xs opacity-70 mt-1">
-              {t("ai_api_key_session_only")}
+              {draft.rememberApiKey
+                ? t("ai_api_key_browser_storage")
+                : t("ai_api_key_session_only")}
+            </div>
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <Checkbox
+                checked={Boolean(draft.rememberApiKey)}
+                onChange={(event) =>
+                  update("rememberApiKey", event.target.checked)
+                }
+              >
+                {t("ai_remember_api_key")}
+              </Checkbox>
+              {apiKey && (
+                <Button type="tertiary" size="small" onClick={clearApiKey}>
+                  {t("ai_clear_api_key")}
+                </Button>
+              )}
             </div>
           </div>
         )}

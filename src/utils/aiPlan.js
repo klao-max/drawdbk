@@ -91,6 +91,13 @@ function tableRef(value, idKey, nameKey) {
   };
 }
 
+function tableOperationRef(operation) {
+  return {
+    id: operation?.id ?? operation?.tableId ?? operation?.table?.id,
+    name: operation?.name ?? operation?.tableName ?? operation?.table?.name,
+  };
+}
+
 function fieldRef(value, idKey, nameKey) {
   return {
     id: value?.[idKey],
@@ -178,11 +185,7 @@ function validateTableOperation(operation, diagram, errors) {
     return;
   }
 
-  const table = resolveTable(
-    diagram,
-    { id: operation.id, name: operation.name },
-    errors,
-  );
+  const table = resolveTable(diagram, tableOperationRef(operation), errors);
   if (!table) return;
 
   if (operation.action === "update") {
@@ -482,11 +485,7 @@ export function normalizeAiPlan(plan, diagram) {
         });
         continue;
       }
-      const table = resolveTable(
-        diagram,
-        { id: operation.id, name: operation.name },
-        [],
-      );
+      const table = resolveTable(diagram, tableOperationRef(operation), []);
       normalized.operations.push({
         target: "table",
         action: operation.action,

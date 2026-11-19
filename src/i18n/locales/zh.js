@@ -93,6 +93,7 @@ const zh = {
     add_note: "添加注释",
     add_type: "添加类型",
     tables: "表",
+    fields: "字段",
     relationships: "关系",
     subject_areas: "主题区域",
     notes: "注释",
@@ -102,6 +103,8 @@ const zh = {
     no_tables_text: "开始构建您的图表！",
     no_relationships: "空空如也",
     no_relationships_text: "拖动以连接列并形成关系！",
+    no_table_fields: "暂无字段",
+    no_table_relationships: "暂无关系",
     no_subject_areas: "空空如也",
     no_subject_areas_text: "添加主题区域以分组表！",
     no_notes: "空空如也",
@@ -325,6 +328,10 @@ const zh = {
     ai_api_key: "API Key",
     ai_api_key_saved_for_session: "当前会话已设置 API Key",
     ai_api_key_session_only: "API Key 只保存在内存中，刷新页面后会清除。",
+    ai_remember_api_key: "在此浏览器记住 API Key",
+    ai_api_key_browser_storage:
+      "API Key 会保存在此浏览器中，刷新页面后仍然可用。",
+    ai_clear_api_key: "清除 API Key",
     ai_hosted_client_available:
       "当前应用提供了托管 AI 客户端，无需填写 API Key。",
     ai_model_required: "请输入模型名称。",

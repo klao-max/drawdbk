@@ -11,6 +11,7 @@ import { v4 as uuidv4 } from "uuid";
 import ControlPanel from "./EditorHeader/ControlPanel";
 import ExtensionsContext, { Slot } from "../context/ExtensionsContext";
 import Canvas from "./EditorCanvas/Canvas";
+import TablePreviewPanel from "./EditorCanvas/TablePreviewPanel";
 import { CanvasContextProvider } from "../context/CanvasContext";
 import SidePanel from "./EditorSidePanel/SidePanel";
 import { DB, State } from "../data/constants";
@@ -652,6 +653,7 @@ export default function WorkSpace({ forcedDiagramId } = {}) {
           <CanvasContextProvider className="h-full w-full">
             <Canvas saveState={saveState} setSaveState={setSaveState} />
           </CanvasContextProvider>
+          <TablePreviewPanel />
           <AiChatPanel />
           <Slot name="canvas-overlay" />
           {layout.toolbar && (

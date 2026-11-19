@@ -48,6 +48,11 @@ import {
   getRectFromEndpoints,
   isInsideRect,
 } from "../../utils/rect";
+import {
+  isEditableCanvasShortcutTarget,
+  isSpaceKey,
+  shouldPanCanvas,
+} from "../../utils/canvasInteraction";
 import { State, noteWidth } from "../../data/constants";
 import { nanoid } from "nanoid";
 
@@ -102,7 +107,7 @@ export default function Canvas() {
   });
   const { emitAwareness } = useCollab();
   const lastLinkingRef = useRef(false);
-  const rightClickPanned = useRef(false);
+  const spacePressedRef = useRef(false);
 
   useEffect(() => {
     if (linking) {
@@ -136,6 +141,7 @@ export default function Canvas() {
     panStart: { x: 0, y: 0 },
     cursorStart: { x: 0, y: 0 },
   });
+  const [spacePressed, setSpacePressed] = useState(false);
   const [areaResize, setAreaResize] = useState({ id: -1, dir: "none" });
   const [areaInitDimensions, setAreaInitDimensions] = useState({
     x: 0,
@@ -585,10 +591,12 @@ export default function Canvas() {
       return;
 
     const isMouseLeftButton = e.button === 0;
-    const isMouseMiddleButton = e.button === 1;
-    const isMouseRightButton = e.button === 2;
+    const isCanvasPan = shouldPanCanvas({
+      button: e.button,
+      spacePressed: spacePressedRef.current,
+    });
 
-    if (isMouseLeftButton) {
+    if (isMouseLeftButton && !isCanvasPan) {
       setBulkSelectRect({
         x1: pointer.spaces.diagram.x,
         y1: pointer.spaces.diagram.y,
@@ -602,8 +610,9 @@ export default function Canvas() {
         handlePointerDownOnElement(e, elementPointerDown);
       }
       pointer.setStyle("crosshair");
-    } else if (isMouseMiddleButton || isMouseRightButton) {
-      if (isMouseRightButton) rightClickPanned.current = false;
+    } else if (isCanvasPan) {
+      e.preventDefault();
+      e.currentTarget.setPointerCapture?.(e.pointerId);
       setPanning({
         isPanning: true,
         panStart: transform.pan,
@@ -638,11 +647,55 @@ export default function Canvas() {
     );
   };
 
-  const didPan = () =>
-    !(
-      transform.pan.x === panning.panStart.x &&
-      transform.pan.y === panning.panStart.y
-    );
+  const finishPanning = useCallback(
+    (nextCursor = spacePressedRef.current ? "grab" : "default") => {
+      const hasMoved =
+        transform.pan.x !== panning.panStart.x ||
+        transform.pan.y !== panning.panStart.y;
+      if (panning.isPanning && hasMoved) {
+        setSaveState(State.SAVING);
+      }
+      setPanning((old) => ({ ...old, isPanning: false }));
+      pointer.setStyle(nextCursor);
+    },
+    [
+      panning.isPanning,
+      panning.panStart.x,
+      panning.panStart.y,
+      pointer,
+      setSaveState,
+      transform.pan.x,
+      transform.pan.y,
+    ],
+  );
+
+  useEventListener("keydown", (e) => {
+    if (!isSpaceKey(e) || isEditableCanvasShortcutTarget(e.target)) return;
+
+    e.preventDefault();
+    if (spacePressedRef.current) return;
+
+    spacePressedRef.current = true;
+    setSpacePressed(true);
+    pointer.setStyle("grab");
+  });
+
+  useEventListener("keyup", (e) => {
+    if (!isSpaceKey(e) || !spacePressedRef.current) return;
+
+    e.preventDefault();
+    spacePressedRef.current = false;
+    setSpacePressed(false);
+    finishPanning();
+  });
+
+  useEventListener("blur", () => {
+    if (!spacePressedRef.current) return;
+
+    spacePressedRef.current = false;
+    setSpacePressed(false);
+    finishPanning();
+  });
 
   /**
    * @param {PointerEvent} e
@@ -737,12 +790,12 @@ export default function Canvas() {
     setDragging(notDragging);
     carriedTablesRef.current = [];
 
-    if (panning.isPanning && didPan()) {
-      setSaveState(State.SAVING);
-      if (e.button === 2) rightClickPanned.current = true;
+    if (panning.isPanning) {
+      e.currentTarget.releasePointerCapture?.(e.pointerId);
+      finishPanning();
+    } else {
+      pointer.setStyle(spacePressedRef.current ? "grab" : "default");
     }
-    setPanning((old) => ({ ...old, isPanning: false }));
-    pointer.setStyle("default");
 
     if (linking) handleLinking();
     setLinking(false);
@@ -933,7 +986,12 @@ export default function Canvas() {
   );
 
   return (
-    <div className="grow h-full touch-none" id="canvas">
+    <div
+      className="grow h-full touch-none"
+      id="canvas"
+      data-space-pan={spacePressed ? "true" : undefined}
+      data-panning={panning.isPanning ? "true" : undefined}
+    >
       <div
         className="w-full h-full"
         style={{
@@ -947,12 +1005,7 @@ export default function Canvas() {
           onPointerMove={handlePointerMove}
           onPointerDown={handlePointerDown}
           onPointerUp={handlePointerUp}
-          onContextMenu={(e) => {
-            if (rightClickPanned.current) {
-              e.preventDefault();
-              rightClickPanned.current = false;
-            }
-          }}
+          onPointerCancel={handlePointerUp}
           className="absolute w-full h-full touch-none"
           viewBox={`${viewBox.left} ${viewBox.top} ${viewBox.width} ${viewBox.height}`}
         >

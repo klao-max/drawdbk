@@ -7,7 +7,12 @@ import {
   Tag,
   TextArea,
 } from "@douyinfe/semi-ui";
-import { IconClose, IconDeleteStroked } from "@douyinfe/semi-icons";
+import {
+  IconClose,
+  IconDeleteStroked,
+  IconExpand,
+  IconMinus,
+} from "@douyinfe/semi-icons";
 import { useTranslation } from "react-i18next";
 import { useAi, useDiagram, useLayout } from "../hooks";
 import { databases } from "../data/databases";
@@ -110,9 +115,12 @@ export default function AiChatPanel() {
     error,
     isConfigured,
     isOpen,
+    isMinimized,
+    minimize,
     messages,
     openSettings,
     applyPlan,
+    restore,
     sendMessage,
     status,
   } = useAi();
@@ -120,6 +128,20 @@ export default function AiChatPanel() {
   const [lastPrompt, setLastPrompt] = useState("");
 
   if (!isOpen) return null;
+
+  if (isMinimized) {
+    return (
+      <button
+        type="button"
+        className="absolute right-4 top-4 z-30 flex h-8 w-8 items-center justify-center rounded-full border border-amber-500/60 bg-amber-400 text-amber-950 shadow-lg transition hover:bg-amber-300"
+        title={t("ai_restore")}
+        aria-label={t("ai_restore")}
+        onClick={restore}
+      >
+        <IconExpand size="small" />
+      </button>
+    );
+  }
 
   const submit = async (value = input) => {
     const prompt = String(value ?? "").trim();
@@ -145,6 +167,15 @@ export default function AiChatPanel() {
           </div>
         </div>
         <div className="flex items-center gap-1">
+          <button
+            type="button"
+            className="flex h-6 w-6 items-center justify-center rounded-full border border-amber-500/60 bg-amber-400 text-amber-950 shadow-sm transition hover:bg-amber-300"
+            title={t("ai_minimize")}
+            aria-label={t("ai_minimize")}
+            onClick={minimize}
+          >
+            <IconMinus size="small" />
+          </button>
           <Button
             type="tertiary"
             theme="borderless"

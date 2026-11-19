@@ -34,7 +34,11 @@ import AiChatPanel from "./AiChatPanel";
 import AiSettingsModal from "./AiSettingsModal";
 import StartModal from "./StartModal";
 import { Button, Modal } from "@douyinfe/semi-ui";
-import { IconAlertTriangle } from "@douyinfe/semi-icons";
+import {
+  IconAlertTriangle,
+  IconChevronLeft,
+  IconChevronRight,
+} from "@douyinfe/semi-icons";
 import { useTranslation } from "react-i18next";
 import { databases } from "../data/databases";
 import { isRtl } from "../i18n/utils/rtl";
@@ -617,9 +621,34 @@ export default function WorkSpace({ forcedDiagramId } = {}) {
         style={isRtl(i18n.language) ? { direction: "rtl" } : {}}
       >
         {layout.sidebar && (
-          <SidePanel resize={resize} setResize={setResize} width={width} />
+          <SidePanel
+            resize={resize}
+            setResize={setResize}
+            width={width}
+            onCollapse={() =>
+              setLayout((previous) => ({ ...previous, sidebar: false }))
+            }
+          />
         )}
         <div className="relative flex-1 min-w-0 h-full overflow-hidden">
+          {!layout.sidebar && (
+            <button
+              type="button"
+              className="absolute top-3 z-40 flex h-8 w-8 items-center justify-center rounded-full border border-amber-500/60 bg-amber-400 text-amber-950 shadow-lg transition hover:bg-amber-300"
+              style={isRtl(i18n.language) ? { right: 12 } : { left: 12 }}
+              title={t("expand_sidebar")}
+              aria-label={t("expand_sidebar")}
+              onClick={() =>
+                setLayout((previous) => ({ ...previous, sidebar: true }))
+              }
+            >
+              {isRtl(i18n.language) ? (
+                <IconChevronRight size="small" />
+              ) : (
+                <IconChevronLeft size="small" />
+              )}
+            </button>
+          )}
           <CanvasContextProvider className="h-full w-full">
             <Canvas saveState={saveState} setSaveState={setSaveState} />
           </CanvasContextProvider>

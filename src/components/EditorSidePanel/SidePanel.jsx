@@ -1,6 +1,6 @@
 import { memo, useMemo, useState } from "react";
 import { Tabs, TabPane } from "@douyinfe/semi-ui";
-import { IconCode, IconList } from "@douyinfe/semi-icons";
+import { IconCode, IconList, IconMinus } from "@douyinfe/semi-icons";
 import { IconTable, IconRelationship } from "../../icons";
 import { DB, Tab } from "../../data/constants";
 import {
@@ -29,7 +29,12 @@ import i18n from "../../i18n/i18n";
 import DBMLEditor from "./DBMLEditor";
 import SqlHeaderTab from "./SqlHeaderTab";
 
-export default memo(function SidePanel({ width, resize, setResize }) {
+export default memo(function SidePanel({
+  width,
+  resize,
+  setResize,
+  onCollapse,
+}) {
   const { layout, setLayout } = useLayout();
   const { settings } = useSettings();
   const { selectedElement, setSelectedElement } = useSelect();
@@ -120,6 +125,15 @@ export default memo(function SidePanel({ width, resize, setResize }) {
         className={`flex flex-col h-full relative ${layout.dbmlEditor ? "" : "pt-2"}`}
         style={{ width: `${width}px` }}
       >
+        <button
+          type="button"
+          className="absolute right-2 top-3 z-20 flex h-7 w-7 items-center justify-center rounded-full border border-amber-500/60 bg-amber-400 text-amber-950 shadow-sm transition hover:bg-amber-300"
+          title={t("collapse_sidebar")}
+          aria-label={t("collapse_sidebar")}
+          onClick={onCollapse}
+        >
+          <IconMinus size="small" />
+        </button>
         <div className="h-full flex-1 overflow-y-auto">
           {layout.dbmlEditor ? (
             <DBMLEditor onProblemsChange={setDbmlProblems} />

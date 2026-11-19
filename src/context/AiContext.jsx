@@ -74,6 +74,7 @@ export default function AiContextProvider({ children }) {
   const [aiSettings, setAiSettings] = useState(loadSettings);
   const [apiKey, setApiKey] = useState("");
   const [isOpen, setIsOpen] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [status, setStatus] = useState("idle");
@@ -88,10 +89,17 @@ export default function AiContextProvider({ children }) {
 
   const open = useCallback(() => {
     setIsOpen(true);
+    setIsMinimized(false);
     setError("");
   }, []);
 
-  const close = useCallback(() => setIsOpen(false), []);
+  const close = useCallback(() => {
+    setIsOpen(false);
+    setIsMinimized(false);
+  }, []);
+
+  const minimize = useCallback(() => setIsMinimized(true), []);
+  const restore = useCallback(() => setIsMinimized(false), []);
 
   const openSettings = useCallback(() => setSettingsOpen(true), []);
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
@@ -331,11 +339,14 @@ export default function AiContextProvider({ children }) {
       extensionAiAvailable,
       isConfigured,
       isOpen,
+      isMinimized,
+      minimize,
       messages,
       pendingPlans: messages.filter((message) => message.plan),
       open,
       openSettings,
       applyPlan,
+      restore,
       saveAiSettings,
       sendMessage,
       setApiKey,
@@ -354,6 +365,8 @@ export default function AiContextProvider({ children }) {
       extensionAiAvailable,
       isConfigured,
       isOpen,
+      isMinimized,
+      minimize,
       messages,
       open,
       openSettings,
@@ -361,6 +374,7 @@ export default function AiContextProvider({ children }) {
       sendMessage,
       settingsOpen,
       status,
+      restore,
     ],
   );
 
